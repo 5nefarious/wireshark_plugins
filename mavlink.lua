@@ -1,0 +1,297 @@
+local mavlink = Proto("mavlink", "MAVLink Protocol")
+
+local version_from_magic = {
+	[85] = 0.9,
+	[253] = 2.0,
+	[254] = 1.0
+}
+
+local message_id = {
+	[0] = "HEARTBEAT",
+	[1] = "SYS_STATUS",
+	[2] = "SYSTEM_TIME",
+	[4] = "PING",
+	[5] = "CHANGE_OPERATOR_CONTROL",
+	[6] = "CHANGE_OPERATOR_CONTROL_ACK",
+	[7] = "AUTH_KEY",
+	[11] = "SET_MODE",
+	[20] = "PARAM_REQUEST_READ",
+	[21] = "PARAM_REQUEST_LIST",
+	[22] = "PARAM_VALUE",
+	[23] = "PARAM_SET",
+	[24] = "GPS_RAW_INIT",
+	[25] = "GPS_STATUS",
+	[26] = "SCALED_IMU",
+	[27] = "RAW_IMU",
+	[28] = "RAW_PRESSURE",
+	[29] = "SCALED_PRESSURE",
+	[30] = "ATTITUDE",
+	[31] = "ATTITUDE_QUATERNION",
+	[32] = "LOCAL_POSITION_NED",
+	[33] = "GLOBAL_POSITION_INT",
+	[34] = "RC_CHANNELS_SCALED",
+	[35] = "RC_CHANNELS_RAW",
+	[36] = "SERVO_OUTPUT_RAW",
+    [37] = "MISSION_REQUEST_PARTIAL_LIST",
+    [38] = "MISSION_WRITE_PARTIAL_LIST",
+    [39] = "MISSION_ITEM",
+    [40] = "MISSION_REQUEST",
+    [41] = "MISSION_SET_CURRENT",
+    [42] = "MISSION_CURRENT",
+    [43] = "MISSION_REQUEST_LIST",
+    [44] = "MISSION_COUNT",
+    [45] = "MISSION_CLEAR_ALL",
+    [46] = "MISSION_ITEM_REACHED",
+    [47] = "MISSION_ACK",
+    [48] = "SET_GPS_GLOBAL_ORIGIN",
+    [49] = "GPS_GLOBAL_ORIGIN",
+    [50] = "PARAM_MAP_RC",
+    [51] = "MISSION_REQUEST_INT",
+    [54] = "SAFETY_SET_ALLOWED_AREA",
+    [55] = "SAFETY_ALLOWED_AREA",
+    [61] = "ATTITUDE_QUATERNION_COV",
+    [62] = "NAV_CONTROLLER_OUTPUT",
+    [63] = "GLOBAL_POSITION_INT_COV",
+    [64] = "LOCAL_POSITION_NED_COV",
+    [65] = "RC_CHANNELS",
+    [66] = "REQUEST_DATA_STREAM",
+    [67] = "DATA_STREAM",
+    [69] = "MANUAL_CONTROL",
+    [70] = "RC_CHANNELS_OVERRIDE",
+    [73] = "MISSION_ITEM_INT",
+    [74] = "VFR_HUD",
+    [75] = "COMMAND_INT",
+    [76] = "COMMAND_LONG",
+    [77] = "COMMAND_ACK",
+    [81] = "MANUAL_SETPOINT",
+    [82] = "SET_ATTITUDE_TARGET",
+    [83] = "ATTITUDE_TARGET",
+    [84] = "SET_POSITION_TARGET_LOCAL_NED",
+    [85] = "POSITION_TARGET_LOCAL_NED",
+    [86] = "SET_POSITION_TARGET_GLOBAL_INT",
+    [87] = "POSITION_TARGET_GLOBAL_INT",
+    [89] = "LOCAL_POSITION_NED_SYSTEM_GLOBAL_OFFSET",
+    [90] = "HIL_STATE",
+    [91] = "HIL_CONTROLS",
+    [92] = "HIL_RC_INPUTS_RAW",
+    [93] = "HIL_ACTUATOR_CONTROLS",
+    [100] = "OPTICAL_FLOW",
+    [101] = "GLOBAL_VISION_POSITION_ESTIMATE",
+    [102] = "VISION_POSITION_ESTIMATE",
+    [103] = "VISION_SPEED_ESTIMATE",
+    [104] = "VICON_POSITION_ESTIMATE",
+    [105] = "HIGHRES_IMU",
+    [106] = "OPTICAL_FLOW_RAD",
+    [107] = "HIL_SENSOR",
+    [108] = "SIM_STATE",
+    [109] = "RADIO_STATUS",
+    [110] = "FILE_TRANSFER_PROTOCOL",
+    [111] = "TIMESYNC",
+    [112] = "CAMERA_TRIGGER",
+    [113] = "HIL_GPS",
+    [114] = "HIL_OPTICAL_FLOW",
+    [115] = "HIL_STATE_QUATERNION",
+    [116] = "SCALED_IMU2",
+    [117] = "LOG_REQUEST_LIST",
+    [118] = "LOG_ENTRY",
+    [119] = "LOG_REQUEST_DATA",
+    [120] = "LOG_DATA",
+    [121] = "LOG_ERASE",
+    [122] = "LOG_REQUEST_END",
+    [123] = "GPS_INJECT_DATA",
+    [124] = "GPS2_RAW",
+    [125] = "POWER_STATUS",
+    [126] = "SERIAL_CONTROL",
+    [127] = "GPS_RTK",
+    [128] = "GPS2_RTK",
+    [129] = "SCALED_IMU3",
+    [130] = "DATA_TRANSMISSION_HANDSHAKE",
+    [131] = "ENCAPSULATED_DATA",
+    [132] = "DISTANCE_SENSOR",
+    [133] = "TERRAIN_REQUEST",
+    [134] = "TERRAIN_DATA",
+    [135] = "TERRAIN_CHECK",
+    [136] = "TERRAIN_REPORT",
+    [137] = "SCALED_PRESSURE2",
+    [138] = "ATT_POS_MOCAP",
+    [139] = "SET_ACTUATOR_CONTROL_TARGET",
+    [140] = "ACTUATOR_CONTROL_TARGET",
+    [141] = "ALTITUDE",
+    [142] = "RESOURCE_REQUEST",
+    [143] = "SCALED_PRESSURE3",
+    [144] = "FOLLOW_TARGET",
+    [146] = "CONTROL_SYSTEM_STATE",
+    [147] = "BATTERY_STATUS",
+    [148] = "AUTOPILOT_VERSION",
+    [149] = "LANDING_TARGET",
+    [150] = "SENSOR_OFFSETS",
+    [151] = "SET_MAG_OFFSETS",
+    [152] = "MEMINFO",
+    [153] = "AP_ADC",
+    [154] = "DIGICAM_CONFIGURE",
+    [155] = "DIGICAM_CONTROL",
+    [156] = "MOUNT_CONFIGURE",
+    [157] = "MOUNT_CONTROL",
+    [158] = "MOUNT_STATUS",
+    [160] = "FENCE_POINT",
+    [161] = "FENCE_FETCH_POINT",
+    [162] = "FENCE_STATUS",
+    [163] = "AHRS",
+    [164] = "SIMSTATE",
+    [165] = "HWSTATUS",
+    [166] = "RADIO",
+    [167] = "LIMITS_STATUS",
+    [168] = "WIND",
+    [169] = "DATA16",
+    [170] = "DATA32",
+    [171] = "DATA64",
+    [172] = "DATA96",
+    [173] = "RANGEFINDER",
+    [174] = "AIRSPEED_AUTOCAL",
+    [175] = "RALLY_POINT",
+    [176] = "RALLY_FETCH_POINT",
+    [177] = "COMPASSMOT_STATUS",
+    [178] = "AHRS2",
+    [179] = "CAMERA_STATUS",
+    [180] = "CAMERA_FEEDBACK",
+    [181] = "BATTERY2",
+    [182] = "AHRS3",
+    [183] = "AUTOPILOT_VERSION_REQUEST",
+    [184] = "REMOTE_LOG_DATA_BLOCK",
+    [185] = "REMOTE_LOG_BLOCK_STATUS",
+    [186] = "LED_CONTROL",
+    [191] = "MAG_CAL_PROGRESS",
+    [192] = "MAG_CAL_REPORT",
+    [193] = "EKF_STATUS_REPORT",
+    [194] = "PID_TUNING",
+    [195] = "DEEPSTALL",
+    [200] = "GIMBAL_REPORT",
+    [201] = "GIMBAL_CONTROL",
+    [214] = "GIMBAL_TORQUE_CMD_REPORT",
+    [215] = "GOPRO_HEARTBEAT",
+    [216] = "GOPRO_GET_REQUEST",
+    [217] = "GOPRO_GET_RESPONSE",
+    [218] = "GOPRO_SET_REQUEST",
+    [219] = "GOPRO_SET_RESPONSE",
+    [226] = "RPM",
+    [230] = "ESTIMATOR_STATUS",
+    [231] = "WIND_COV",
+    [232] = "GPS_INPUT",
+    [233] = "GPS_RTCM_DATA",
+    [234] = "HIGH_LATENCY",
+    [235] = "HIGH_LATENCY2",
+    [241] = "VIBRATION",
+    [242] = "HOME_POSITION",
+    [243] = "SET_HOME_POSITION",
+    [244] = "MESSAGE_INTERVAL",
+    [245] = "EXTENDED_SYS_STATE",
+    [246] = "ADSB_VEHICLE",
+    [247] = "COLLISION",
+    [248] = "V2_EXTENSION",
+    [249] = "MEMORY_VECT",
+    [250] = "DEBUG_VECT",
+    [251] = "NAMED_VALUE_FLOAT",
+    [252] = "NAMED_VALUE_INT",
+    [253] = "STATUSTEXT",
+    [254] = "DEBUG",
+    [256] = "SETUP_SIGNING",
+    [257] = "BUTTON_CHANGE",
+    [258] = "PLAY_TUNE",
+    [259] = "CAMERA_INFORMATION",
+    [260] = "CAMERA_SETTINGS",
+    [261] = "STORAGE_INFORMATION",
+    [262] = "CAMERA_CAPTURE_STATUS",
+    [263] = "CAMERA_IMAGE_CAPTURED",
+    [264] = "FLIGHT_INFORMATION",
+    [265] = "MOUNT_ORIENTATION",
+    [266] = "LOGGING_DATA",
+    [267] = "LOGGING_DATA_ACKED",
+    [268] = "LOGGING_ACK",
+    [269] = "VIDEO_STREAM_INFORMATION",
+    [270] = "SET_VIDEO_STREAM_SETTINGS",
+    [299] = "WIFI_CONFIG_AP",
+    [300] = "PROTOCOL_VERSION",
+    [310] = "UAVCAN_NODE_STATUS",
+    [311] = "UAVCAN_NODE_INFO",
+    [320] = "PARAM_EXT_REQUEST_READ",
+    [321] = "PARAM_EXT_REQUEST_LIST",
+    [322] = "PARAM_EXT_VALUE",
+    [323] = "PARAM_EXT_SET",
+    [324] = "PARAM_EXT_ACK",
+    [330] = "OBSTACLE_DISTANCE",
+    [331] = "ODOMETRY",
+    [332] = "TRAJECTORY",
+    [11000] = "DEVICE_OP_READ",
+    [11001] = "DEVICE_OP_READ_REPLY",
+    [11002] = "DEVICE_OP_WRITE",
+    [11003] = "DEVICE_OP_WRITE_REPLY",
+    [11010] = "ADAP_TUNING",
+    [11011] = "VISION_POSITION_DELTA",
+    [11020] = "AOA_SSA",
+    [42000] = "ICAROUS_HEARTBEAT",
+    [42001] = "ICAROUS_KINEMATIC_BANDS"
+}
+
+local pf_magic = ProtoField.uint8("mavlink.magic", "Magic", base.HEX)
+local pf_len = ProtoField.uint8("mavlink.length", "Payload Length", base.DEC)
+local pf_incompat_flags = ProtoField.uint8("mavlink.iflags", "Required Flags",
+	base.HEX)
+local pf_compat_flags = ProtoField.uint8("mavlink.cflags", "Optional Flags",
+	base.HEX)
+local pf_seq = ProtoField.uint8("mavlink.seq", "Sequence Number", base.DEC)
+local pf_sysid = ProtoField.uint8("mavlink.sysid", "System ID", base.DEC)
+local pf_compid = ProtoField.uint8("mavlink.compid", "Component ID", base.DEC)
+local pf_msgid = ProtoField.uint24("mavlink.msgid", "Message ID", base.DEC)
+local pf_target_sysid = ProtoField.uint8("mavlink.tsysid", "Target System ID",
+	base.DEC)
+local pf_target_compid = ProtoField.uint8("mavlink.tcompid",
+	"Target Component ID", base.DEC)
+local pf_checksum = ProtoField.uint16("mavlink.checksum", "Checksum", base.HEX)
+local pf_signature = ProtoField.bytes("mavlink.sig", "Signature")
+
+mavlink.fields = {
+	pf_magic,
+	pf_len,
+	pf_incompat_flags,
+	pf_compat_flags,
+	pf_seq,
+	pf_sysid,
+	pf_compid,
+	pf_msgid,
+	pf_target_sysid,
+	pf_target_compid,
+	pf_checksum,
+	pf_signature
+}
+
+function mavlink.dissector(buffer, pinfo, root)
+	pinfo.cols.protocol = "MAVLink"
+	local tree = root:add(mavlink, buffer(), "MAVLink Protocol")
+
+	local magic = buffer(0, 1):uint()
+	local version = version_from_magic[magic]
+	local version_str = string.format("Version %0.1f", version)
+	tree:add(pf_magic, buffer(0, 1)):append_text(" (" .. version_str .. ")")
+
+	local len = buffer(1, 1):uint()
+	tree:add(pf_len, buffer(1, 1))
+	tree:add(pf_seq, buffer(2, 1))
+
+	local sysid = buffer(3, 1):uint()
+	local compid = buffer(4, 1):uint()
+	tree:add(pf_sysid, buffer(3, 1))
+	tree:add(pf_compid, buffer(4, 1))
+
+	local msgid = message_id[buffer(5, 1):uint()]
+	ti_msgid = tree:add(pf_msgid, buffer(5, 1))
+	if msgid ~= nil then ti_msgid:append_text(" (" .. msgid .. ")") end
+
+	tree:add(pf_checksum, buffer(6 + len, 2))
+
+	local summary = " " .. version_str .. ", System: " .. sysid
+		.. ", Component: " .. compid .. ", " .. msgid
+
+	tree:append_text(summary)
+end
+
+DissectorTable.get("udp.port"):add(14550, mavlink)
