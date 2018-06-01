@@ -284,6 +284,14 @@ local message_id = {
 -- to their corresponding message IDs.
 -- These fields are contained in the payload.
 local message_fields = {
+	PARAM_VALUE = {
+		{ type = ftypes.STRING, id = "param_id", name = "ID", length = 16 },
+		{ type = ftypes.FLOAT, id = "param_value", name = "Value" },
+		{ type = ftypes.UINT8, id = "param_type", name = "Type",
+		  enum = "MAV_PARAM_TYPE" },
+		{ type = ftypes.UINT16, id = "param_count", name = "Count" },
+		{ type = ftypes.UINT16, id = "param_index", name = "Index" },
+	},
 	MISSION_ITEM = {
 		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
 		{ type = ftypes.UINT8, id = "target_component",
@@ -312,7 +320,7 @@ local message_fields = {
 		  enum = "MAV_MISSION_TYPE" },
 	},
 	MISSION_CURRENT ={
-		{ type = ftypes.UINT16, id = "seq" },
+		{ type = ftypes.UINT16, id = "seq", name = "Sequence" },
 	},
 	MISSION_COUNT = { 
 		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
@@ -515,6 +523,18 @@ local message_enums = {
 		[31013] = "MAV_CMD_USER_4",
 		[31014] = "MAV_CMD_USER_5",
 	},
+	MAV_PARAM_TYPE = {
+		"MAV_PARAM_TYPE_UINT8",
+		"MAV_PARAM_TYPE_INT8",
+		"MAV_PARAM_TYPE_UINT16",
+		"MAV_PARAM_TYPE_INT16",
+		"MAV_PARAM_TYPE_UINT32",
+		"MAV_PARAM_TYPE_INT32",
+		"MAV_PARAM_TYPE_UINT64",
+		"MAV_PARAM_TYPE_INT64",
+		"MAV_PARAM_TYPE_REAL32",
+		"MAV_PARAM_TYPE_REAL64",
+	},
 	MAV_MISSION_RESULT = {
 		[0] = "MAV_MISSION_ACCEPTED",
 		"MAV_MISSION_ERROR",
@@ -595,6 +615,7 @@ for _, t in pairs(message_fields) do
 end
 
 -- Length of different field types in bytes
+-- NOTE: Strings are considered 1 byte for the purpose of sorting.
 local flength = {
 	[ftypes.INT8] = 1,
 	[ftypes.UINT8] = 1,
@@ -606,6 +627,7 @@ local flength = {
 	[ftypes.DOUBLE] = 8,
 	[ftypes.INT64] = 8,
 	[ftypes.UINT64] = 8,
+	[ftypes.STRING] = 1,
 }
 
 -- Sorts MAVLink message fields (insertion sort)
@@ -616,7 +638,8 @@ local function sort_fields(f)
 	for i = 2, #f do
 		for j = i - 1, 1, -1 do
 			local k = j + 1
-			if flength[f[j].type] < flength[f[k].type] then
+			local function len(a) return flength[a.type] or a.length end
+			if len(f[j]) < len(f[k]) then
 				local swap = f[j]
 				f[j] = f[k]
 				f[k] = swap
@@ -637,7 +660,7 @@ local function payload_parser(msgid, buffer, pinfo, tree)
 
 	for _, f in ipairs(sfields) do
 		local pf = pfs_message[f.id]
-		local len = flength[f.type]
+		local len = f.length or flength[f.type]
 		print("len: " .. len)
 
 		if (pf ~= nil) and (offset + len <= buffer:len()) then
