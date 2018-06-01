@@ -600,12 +600,17 @@ mavlink.fields = {
 	pf_signature,
 }
 
+-- Converts underscores to spaces and capitalizes the beginning of a string
+local function prettyprint(str)
+	return (str:gsub('_', ' '):gsub("^%l", string.upper))
+end
+
 -- Adding ProtoFields for message fields (found in payload)
 local pfs_message = {}
 for _, t in pairs(message_fields) do
 	for _, f in pairs(t) do
 		local abbr = "mavlink." .. f.id
-		local name = f.name or f.enum or f.id
+		local name = f.name or prettyprint(f.id) or f.enum
 
 		pf = ProtoField.new(name, abbr, f.type, message_enums[f.enum])
 
