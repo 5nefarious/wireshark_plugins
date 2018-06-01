@@ -1,9 +1,57 @@
+-- Author: Arvin Ignaci <arvin.ignaci@calanalytics.com>
+-- NOTE: This software currently only works with MAVLink Protocol Version 1.0
+
+-- Register MAVLink protocol
 local mavlink = Proto("mavlink", "MAVLink Protocol")
 
+-- Maps magic values to MAVLink protocol version
 local version_from_magic = {
 	[85] = 0.9,
 	[253] = 2.0,
-	[254] = 1.0
+	[254] = 1.0,
+}
+
+local component_id = {
+	[0] = "MAV_COMP_ID_ALL",
+	[1] = "MAV_COMP_ID_AUTOPILOT1",
+	[100] = "MAV_COMP_ID_CAMERA",
+	[101] = "MAV_COMP_ID_CAMERA2",
+	[102] = "MAV_COMP_ID_CAMERA3",
+	[103] = "MAV_COMP_ID_CAMERA4",
+	[104] = "MAV_COMP_ID_CAMERA5",
+	[105] = "MAV_COMP_ID_CAMERA6",
+	[140] = "MAV_COMP_ID_SERVO1",
+	[141] = "MAV_COMP_ID_SERVO2",
+	[142] = "MAV_COMP_ID_SERVO3",
+	[143] = "MAV_COMP_ID_SERVO4",
+	[144] = "MAV_COMP_ID_SERVO5",
+	[145] = "MAV_COMP_ID_SERVO6",
+	[146] = "MAV_COMP_ID_SERVO7",
+	[147] = "MAV_COMP_ID_SERVO8",
+	[148] = "MAV_COMP_ID_SERVO9",
+	[149] = "MAV_COMP_ID_SERVO10",
+	[150] = "MAV_COMP_ID_SERVO11",
+	[151] = "MAV_COMP_ID_SERVO12",
+	[152] = "MAV_COMP_ID_SERVO13",
+	[153] = "MAV_COMP_ID_SERVO14",
+	[154] = "MAV_COMP_ID_GIMBAL",
+	[155] = "MAV_COMP_ID_LOG",
+	[156] = "MAV_COMP_ID_ADSB",
+	[157] = "MAV_COMP_ID_OSD",
+	[158] = "MAV_COMP_ID_PERIPHERAL",
+	[159] = "MAV_COMP_ID_QX1_GIMBAL",
+	[160] = "MAV_COMP_ID_FLARM",
+	[180] = "MAV_COMP_ID_MAPPER",
+	[190] = "MAV_COMP_ID_MISSIONPLANNER",
+	[195] = "MAV_COMP_ID_PATHPLANNER",
+	[200] = "MAV_COMP_ID_IMU",
+	[201] = "MAV_COMP_ID_IMU_2",
+	[202] = "MAV_COMP_ID_IMU_3",
+	[220] = "MAV_COMP_ID_GPS",
+	[221] = "MAV_COMP_ID_GPS2",
+	[240] = "MAV_COMP_ID_UDP_BRIDGE",
+	[241] = "MAV_COMP_ID_UART_BRIDGE",
+	[250] = "MAV_COMP_ID_SYSTEM_CONTROL",
 }
 
 local message_id = {
@@ -229,26 +277,293 @@ local message_id = {
 	[11011] = "VISION_POSITION_DELTA",
 	[11020] = "AOA_SSA",
 	[42000] = "ICAROUS_HEARTBEAT",
-	[42001] = "ICAROUS_KINEMATIC_BANDS"
+	[42001] = "ICAROUS_KINEMATIC_BANDS",
 }
 
-local pf_magic = ProtoField.uint8("mavlink.magic", "Magic", base.HEX)
+-- Additional fields that are sent with each message. The fields are mapped
+-- to their corresponding message IDs.
+-- These fields are contained in the payload.
+local message_fields = {
+	MISSION_ITEM = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT16, id = "seq", name = "Sequence" },
+		{ type = ftypes.UINT8, id = "frame", enum = "MAV_FRAME" },
+		{ type = ftypes.UINT16, id = "command", enum = "MAV_CMD" },
+		{ type = ftypes.UINT8, id = "current" },
+		{ type = ftypes.UINT8, id = "autocontinue" },
+		{ type = ftypes.FLOAT, id = "param1" },
+		{ type = ftypes.FLOAT, id = "param2" },
+		{ type = ftypes.FLOAT, id = "param3" },
+		{ type = ftypes.FLOAT, id = "param4" },
+		{ type = ftypes.FLOAT, id = "x" },
+		{ type = ftypes.FLOAT, id = "y" },
+		{ type = ftypes.FLOAT, id = "z" },
+		{ type = ftypes.UINT8, id = "mission_type",
+		  enum = "MAV_MISSION_TYPE" },
+	},
+	MISSION_REQUEST = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT16, id = "seq", name = "Sequence" },
+		{ type = ftypes.UINT8, id = "mission_type",
+		  enum = "MAV_MISSION_TYPE" },
+	},
+	MISSION_CURRENT ={
+		{ type = ftypes.UINT16, id = "seq" },
+	},
+	MISSION_COUNT = { 
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT16, id = "count" },
+		{ type = ftypes.UINT8, id = "mission_type",
+		  enum = "MAV_MISSION_TYPE" },
+	},
+	MISSION_CLEAR_ALL = { 
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT8, id = "mission_type",
+		  enum = "MAV_MISSION_TYPE" },
+	},
+	MISSION_ACK = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT8, id = "type",
+		  enum = "MAV_MISSION_RESULT" },
+	},
+	MISSION_ITEM_INT = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT16, id = "seq", name = "Sequence" },
+		{ type = ftypes.UINT8, id = "frame", enum = "MAV_FRAME" },
+		{ type = ftypes.UINT16, id = "command", enum = "MAV_CMD" },
+		{ type = ftypes.UINT8, id = "current" },
+		{ type = ftypes.UINT8, id = "autocontinue" },
+		{ type = ftypes.FLOAT, id = "param1" },
+		{ type = ftypes.FLOAT, id = "param2" },
+		{ type = ftypes.FLOAT, id = "param3" },
+		{ type = ftypes.FLOAT, id = "param4" },
+		{ type = ftypes.INT32, id = "x" },
+		{ type = ftypes.INT32, id = "y" },
+		{ type = ftypes.FLOAT, id = "z" },
+		{ type = ftypes.UINT8, id = "mission_type",
+		  enum = "MAV_MISSION_TYPE" },
+	},
+}
+
+-- Definitions for enumerated fields
+local message_enums = {
+	MAV_COMPONENT = component_id,
+	MAV_FRAME = {
+		[0] = "MAV_FRAME_GLOBAL",
+		"MAV_FRAME_LOCAL_NED",
+		"MAV_FRAME_MISSION",
+		"MAV_FRAME_GLOBAL_RELATIVE_ALT",
+		"MAV_FRAME_LOCAL_ENU",
+		"MAV_FRAME_GLOBAL_INT",
+		"MAV_FRAME_GLOBAL_RELATIVE_ALT_INT",
+		"MAV_FRAME_LOCAL_OFFSET_NED",
+		"MAV_FRAME_BODY_NED",
+		"MAV_FRAME_BODY_OFFSET_NED",
+		"MAV_FRAME_GLOBAL_TERRAIN_ALT",
+		"MAV_FRAME_GLOBAL_TERRAIN_ALT_INT",
+		"MAV_FRAME_BODY_FRD",
+		"MAV_FRAME_BODY_FLU",
+		"MAV_FRAME_MOCAP_NED",
+		"MAV_FRAME_MOCAP_ENU",
+		"MAV_FRAME_VISION_NED",
+		"MAV_FRAME_VISION_ENU",
+		"MAV_FRAME_ESTIM_NED",
+		"MAV_FRAME_ESTIM_ENU",
+	},
+	MAV_CMD = {
+        [16] = "MAV_CMD_NAV_WAYPOINT",
+        [17] = "MAV_CMD_NAV_LOITER_UNLIM",
+        [18] = "MAV_CMD_NAV_LOITER_TURNS",
+        [19] = "MAV_CMD_NAV_LOITER_TIME",
+        [20] = "MAV_CMD_NAV_RETURN_TO_LAUNCH",
+        [21] = "MAV_CMD_NAV_LAND",
+        [22] = "MAV_CMD_NAV_TAKEOFF",
+        [23] = "MAV_CMD_NAV_LAND_LOCAL",
+        [24] = "MAV_CMD_NAV_TAKEOFF_LOCAL",
+        [25] = "MAV_CMD_NAV_FOLLOW",
+        [30] = "MAV_CMD_NAV_CONTINUE_AND_CHANGE_ALT",
+        [31] = "MAV_CMD_NAV_LOITER_TO_ALT",
+        [32] = "MAV_CMD_DO_FOLLOW",
+        [33] = "MAV_CMD_DO_FOLLOW_REPOSITION",
+        [80] = "MAV_CMD_NAV_ROI",
+        [81] = "MAV_CMD_NAV_PATHPLANNING",
+        [82] = "MAV_CMD_NAV_SPLINE_WAYPOINT",
+        [84] = "MAV_CMD_NAV_VTOL_TAKEOFF",
+        [85] = "MAV_CMD_NAV_VTOL_LAND",
+        [92] = "MAV_CMD_NAV_GUIDED_ENABLE",
+        [93] = "MAV_CMD_NAV_DELAY",
+        [94] = "MAV_CMD_NAV_PAYLOAD_PLACE",
+        [95] = "MAV_CMD_NAV_LAST",
+        [112] = "MAV_CMD_CONDITION_DELAY",
+        [113] = "MAV_CMD_CONDITION_CHANGE_ALT",
+        [114] = "MAV_CMD_CONDITION_DISTANCE",
+        [115] = "MAV_CMD_CONDITION_YAW",
+        [159] = "MAV_CMD_CONDITION_LAST",
+        [176] = "MAV_CMD_DO_SET_MODE",
+        [177] = "MAV_CMD_DO_JUMP",
+        [178] = "MAV_CMD_DO_CHANGE_SPEED",
+        [179] = "MAV_CMD_DO_SET_HOME",
+        [180] = "MAV_CMD_DO_SET_PARAMETER",
+        [181] = "MAV_CMD_DO_SET_RELAY",
+        [182] = "MAV_CMD_DO_REPEAT_RELAY",
+        [183] = "MAV_CMD_DO_SET_SERVO",
+        [184] = "MAV_CMD_DO_REPEAT_SERVO",
+        [185] = "MAV_CMD_DO_FLIGHTTERMINATION",
+        [186] = "MAV_CMD_DO_CHANGE_ALTITUDE",
+        [189] = "MAV_CMD_DO_LAND_START",
+        [190] = "MAV_CMD_DO_RALLY_LAND",
+        [191] = "MAV_CMD_DO_GO_AROUND",
+        [192] = "MAV_CMD_DO_REPOSITION",
+        [193] = "MAV_CMD_DO_PAUSE_CONTINUE",
+        [194] = "MAV_CMD_DO_SET_REVERSE",
+        [195] = "MAV_CMD_DO_SET_ROI_LOCATION",
+        [196] = "MAV_CMD_DO_SET_ROI_WPNEXT_OFFSET",
+        [197] = "MAV_CMD_DO_SET_ROI_NONE",
+        [200] = "MAV_CMD_DO_CONTROL_VIDEO",
+        [201] = "MAV_CMD_DO_SET_ROI",
+        [202] = "MAV_CMD_DO_DIGICAM_CONFIGURE",
+        [203] = "MAV_CMD_DO_DIGICAM_CONTROL",
+        [204] = "MAV_CMD_DO_MOUNT_CONFIGURE",
+        [205] = "MAV_CMD_DO_MOUNT_CONTROL",
+        [206] = "MAV_CMD_DO_SET_CAM_TRIGG_DIST",
+        [207] = "MAV_CMD_DO_FENCE_ENABLE",
+        [208] = "MAV_CMD_DO_PARACHUTE",
+        [209] = "MAV_CMD_DO_MOTOR_TEST",
+        [210] = "MAV_CMD_DO_INVERTED_FLIGHT",
+        [213] = "MAV_CMD_NAV_SET_YAW_SPEED",
+        [214] = "MAV_CMD_DO_SET_CAM_TRIGG_INTERVAL",
+        [220] = "MAV_CMD_DO_MOUNT_CONTROL_QUAT",
+        [221] = "MAV_CMD_DO_GUIDED_MASTER",
+        [222] = "MAV_CMD_DO_GUIDED_LIMITS",
+        [223] = "MAV_CMD_DO_ENGINE_CONTROL",
+        [240] = "MAV_CMD_DO_LAST",
+        [241] = "MAV_CMD_PREFLIGHT_CALIBRATION",
+        [242] = "MAV_CMD_PREFLIGHT_SET_SENSOR_OFFSETS",
+        [243] = "MAV_CMD_PREFLIGHT_UAVCAN",
+        [245] = "MAV_CMD_PREFLIGHT_STORAGE",
+        [246] = "MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN",
+        [252] = "MAV_CMD_OVERRIDE_GOTO",
+        [300] = "MAV_CMD_MISSION_START",
+        [400] = "MAV_CMD_COMPONENT_ARM_DISARM",
+        [410] = "MAV_CMD_GET_HOME_POSITION",
+        [500] = "MAV_CMD_START_RX_PAIR",
+        [510] = "MAV_CMD_GET_MESSAGE_INTERVAL",
+        [511] = "MAV_CMD_SET_MESSAGE_INTERVAL",
+        [519] = "MAV_CMD_REQUEST_PROTOCOL_VERSION",
+        [520] = "MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES",
+        [521] = "MAV_CMD_REQUEST_CAMERA_INFORMATION",
+        [522] = "MAV_CMD_REQUEST_CAMERA_SETTINGS",
+        [525] = "MAV_CMD_REQUEST_STORAGE_INFORMATION",
+        [526] = "MAV_CMD_STORAGE_FORMAT",
+        [527] = "MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS",
+        [528] = "MAV_CMD_REQUEST_FLIGHT_INFORMATION",
+        [529] = "MAV_CMD_RESET_CAMERA_SETTINGS",
+        [530] = "MAV_CMD_SET_CAMERA_MODE",
+        [2000] = "MAV_CMD_IMAGE_START_CAPTURE",
+        [2001] = "MAV_CMD_IMAGE_STOP_CAPTURE",
+        [2002] = "MAV_CMD_REQUEST_CAMERA_IMAGE_CAPTURE",
+        [2003] = "MAV_CMD_DO_TRIGGER_CONTROL",
+        [2500] = "MAV_CMD_VIDEO_START_CAPTURE",
+        [2501] = "MAV_CMD_VIDEO_STOP_CAPTURE",
+        [2502] = "MAV_CMD_VIDEO_START_STREAMING",
+        [2503] = "MAV_CMD_VIDEO_STOP_STREAMING",
+        [2504] = "MAV_CMD_REQUEST_VIDEO_STREAM_INFORMATION",
+        [2510] = "MAV_CMD_LOGGING_START",
+        [2511] = "MAV_CMD_LOGGING_STOP",
+        [2520] = "MAV_CMD_AIRFRAME_CONFIGURATION",
+        [2600] = "MAV_CMD_CONTROL_HIGH_LATENCY",
+        [2800] = "MAV_CMD_PANORAMA_CREATE",
+        [3000] = "MAV_CMD_DO_VTOL_TRANSITION",
+        [4000] = "MAV_CMD_SET_GUIDED_SUBMODE_STANDARD",
+        [4001] = "MAV_CMD_SET_GUIDED_SUBMODE_CIRCLE",
+        [4501] = "MAV_CMD_CONDITION_GATE",
+        [3001] = "MAV_CMD_ARM_AUTHORIZATION_REQUEST",
+        [5000] = "MAV_CMD_NAV_FENCE_RETURN_POINT",
+        [5001] = "MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION",
+        [5002] = "MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION",
+        [5003] = "MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION",
+        [5004] = "MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION",
+        [5100] = "MAV_CMD_NAV_RALLY_POINT",
+        [5200] = "MAV_CMD_UAVCAN_GET_NODE_INFO",
+        [30001] = "MAV_CMD_PAYLOAD_PREPARE_DEPLOY",
+        [30002] = "MAV_CMD_PAYLOAD_CONTROL_DEPLOY",
+        [31000] = "MAV_CMD_WAYPOINT_USER_1",
+        [31001] = "MAV_CMD_WAYPOINT_USER_2",
+        [31002] = "MAV_CMD_WAYPOINT_USER_3",
+        [31003] = "MAV_CMD_WAYPOINT_USER_4",
+        [31004] = "MAV_CMD_WAYPOINT_USER_5",
+        [31005] = "MAV_CMD_SPATIAL_USER_1",
+        [31006] = "MAV_CMD_SPATIAL_USER_2",
+        [31007] = "MAV_CMD_SPATIAL_USER_3",
+        [31008] = "MAV_CMD_SPATIAL_USER_4",
+        [31009] = "MAV_CMD_SPATIAL_USER_5",
+        [31010] = "MAV_CMD_USER_1",
+        [31011] = "MAV_CMD_USER_2",
+        [31012] = "MAV_CMD_USER_3",
+        [31013] = "MAV_CMD_USER_4",
+        [31014] = "MAV_CMD_USER_5",
+	},
+	MAV_MISSION_RESULT = {
+		[0] = "MAV_MISSION_ACCEPTED",
+		"MAV_MISSION_ERROR",
+		"MAV_MISSION_UNSUPPORTED_FRAME",
+		"MAV_MISSION_UNSUPPORTED",
+		"MAV_MISSION_NO_SPACE",
+		"MAV_MISSION_INVALID",
+		"MAV_MISSION_INVALID_PARAM1",
+		"MAV_MISSION_INVALID_PARAM2",
+		"MAV_MISSION_INVALID_PARAM3",
+		"MAV_MISSION_INVALID_PARAM4",
+		"MAV_MISSION_INVALID_PARAM5_X",
+		"MAV_MISSION_INVALID_PARAM6_Y",
+		"MAV_MISSION_INVALID_PARAM7",
+		"MAV_MISSION_INVALID_SEQUENCE",
+		"MAV_MISSION_DENIED",
+	},
+	MAV_MISSION_TYPE = {
+		"MAV_MISSION_TYPE_MISSION",
+		"MAV_MISSION_TYPE_FENCE",
+		"MAV_MISSION_TYPE_RALLY",
+		[256] = "MAV_MISSION_TYPE_ALL",
+	},
+}
+
+
+-- Constructing ProtoField objects for MAVLink
+local pf_magic = ProtoField.uint8(
+	"mavlink.magic", "Version", base.HEX, version_from_magic)
 local pf_len = ProtoField.uint8("mavlink.length", "Payload Length", base.DEC)
-local pf_incompat_flags = ProtoField.uint8("mavlink.iflags", "Required Flags",
-	base.HEX)
-local pf_compat_flags = ProtoField.uint8("mavlink.cflags", "Optional Flags",
-	base.HEX)
+local pf_incompat_flags = ProtoField.uint8(
+	"mavlink.iflags", "Required Flags", base.HEX)
+local pf_compat_flags = ProtoField.uint8(
+	"mavlink.cflags", "Optional Flags", base.HEX)
 local pf_seq = ProtoField.uint8("mavlink.seq", "Sequence Number", base.DEC)
 local pf_sysid = ProtoField.uint8("mavlink.sysid", "System ID", base.DEC)
-local pf_compid = ProtoField.uint8("mavlink.compid", "Component ID", base.DEC)
-local pf_msgid = ProtoField.uint24("mavlink.msgid", "Message ID", base.DEC)
-local pf_target_sysid = ProtoField.uint8("mavlink.tsysid", "Target System ID",
-	base.DEC)
-local pf_target_compid = ProtoField.uint8("mavlink.tcompid",
-	"Target Component ID", base.DEC)
+local pf_compid = ProtoField.uint8(
+	"mavlink.compid", "Component ID", base.DEC, component_id)
+local pf_msgid = ProtoField.uint8(
+	"mavlink.msgid", "Message ID", base.DEC, message_id)
+local pf_target_sysid = ProtoField.uint8(
+	"mavlink.tsysid", "Target System ID", base.DEC)
+local pf_target_compid = ProtoField.uint8(
+	"mavlink.tcompid", "Target Component ID", base.DEC)
+local pf_payload = ProtoField.bytes("mavlink.payload", "Payload")
 local pf_checksum = ProtoField.uint16("mavlink.checksum", "Checksum", base.HEX)
 local pf_signature = ProtoField.bytes("mavlink.sig", "Signature")
 
+-- Globally visible list of protocol fields
 mavlink.fields = {
 	pf_magic,
 	pf_len,
@@ -260,19 +575,95 @@ mavlink.fields = {
 	pf_msgid,
 	pf_target_sysid,
 	pf_target_compid,
+	pf_payload,
 	pf_checksum,
-	pf_signature
+	pf_signature,
 }
 
+-- Adding ProtoFields for message fields (found in payload)
+local pfs_message = {}
+for _, t in pairs(message_fields) do
+	for _, f in pairs(t) do
+		local abbr = "mavlink." .. f.id
+		local name = f.name or f.enum or f.id
+
+		pf = ProtoField.new(name, abbr, f.type, message_enums[f.enum])
+
+		pfs_message[f.id] = pf
+		table.insert(mavlink.fields, pf)
+	end
+end
+
+-- Length of different field types in bytes
+local flength = {
+	[ftypes.INT8] = 1,
+	[ftypes.UINT8] = 1,
+	[ftypes.INT16] = 2,
+	[ftypes.UINT16] = 2,
+	[ftypes.FLOAT] = 4,
+	[ftypes.INT32] = 4,
+	[ftypes.UINT32] = 4,
+	[ftypes.DOUBLE] = 8,
+	[ftypes.INT64] = 8,
+	[ftypes.UINT64] = 8,
+}
+
+-- Sorts MAVLink message fields (insertion sort)
+-- MAVLink wire format orders payload fields by length from largest to
+-- smallest. For fields with the same length, the original order is preserved.
+-- A stable sorting algorithm is therefore used.
+local function sort_fields(f)
+	for i = 2, #f do
+		for j = i - 1, 1, -1 do
+			local k = j + 1
+			if flength[f[j].type] < flength[f[k].type] then
+				local swap = f[j]
+				f[j] = f[k]
+				f[k] = swap
+			else
+				break
+			end
+		end
+	end
+	return f
+end
+
+-- Payload dissector
+local function payload_parser(msgid, buffer, pinfo, tree)
+	local fields = message_fields[msgid]
+	if fields == nil then return end
+	local sfields = sort_fields(fields)
+	local offset = 0
+
+	for _, f in ipairs(sfields) do
+		local pf = pfs_message[f.id]
+		local len = flength[f.type]
+		print("len: " .. len)
+
+		if (pf ~= nil) and (offset + len <= buffer:len()) then
+			tree:add(pf, buffer(offset, len))
+		end
+
+		offset = offset + len
+	end
+end
+
+-- Main dissector for MAVLink packets. Called for each packet.
 function mavlink.dissector(buffer, pinfo, root)
+	-- Overwrite 'Protocol' column in packet list
 	pinfo.cols.protocol = "MAVLink"
+
+	-- Add a new TreeInfo block. All decoded fields will be listed under this
+	-- block.
 	local tree = root:add(mavlink, buffer(), "MAVLink Protocol")
 
+	-- Read magic value and determine MAVLink version
 	local magic = buffer(0, 1):uint()
 	local version = version_from_magic[magic]
 	local version_str = string.format("Version %0.1f", version)
-	tree:add(pf_magic, buffer(0, 1)):append_text(" (" .. version_str .. ")")
+	tree:add(pf_magic, buffer(0, 1))
 
+	-- Decode remaining fields
 	local len = buffer(1, 1):uint()
 	tree:add(pf_len, buffer(1, 1))
 	tree:add(pf_seq, buffer(2, 1))
@@ -284,14 +675,23 @@ function mavlink.dissector(buffer, pinfo, root)
 
 	local msgid = message_id[buffer(5, 1):uint()]
 	ti_msgid = tree:add(pf_msgid, buffer(5, 1))
-	if msgid ~= nil then ti_msgid:append_text(" (" .. msgid .. ")") end
 
+	ti_payload = tree:add(pf_payload, buffer(6, len))
 	tree:add(pf_checksum, buffer(6 + len, 2))
 
+	-- Add summary of decoded fields to main TreeInfo node
 	local summary = " " .. version_str .. ", System: " .. sysid
 		.. ", Component: " .. compid .. ", " .. msgid
 
 	tree:append_text(summary)
+	pinfo.cols.info = msgid
+
+	-- Call local helper to dissect payload
+	payload_parser(msgid, buffer(6, len), pinfo, ti_payload)
 end
 
-DissectorTable.get("udp.port"):add(14550, mavlink)
+-- Register protocol to specified UDP ports
+local udp_table = DissectorTable.get("udp.port")
+for port = 14550, 14553 do
+	udp_table:add(port, mavlink)
+end
