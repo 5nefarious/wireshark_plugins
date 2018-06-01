@@ -1,6 +1,22 @@
 -- Author: Arvin Ignaci <arvin.ignaci@calanalytics.com>
 -- NOTE: This software currently only works with MAVLink Protocol Version 1.0
 
+-- Length of different field types in bytes
+-- NOTE: Strings are considered 1 byte for the purpose of sorting.
+local flength = {
+	[ftypes.INT8] = 1,
+	[ftypes.UINT8] = 1,
+	[ftypes.INT16] = 2,
+	[ftypes.UINT16] = 2,
+	[ftypes.FLOAT] = 4,
+	[ftypes.INT32] = 4,
+	[ftypes.UINT32] = 4,
+	[ftypes.DOUBLE] = 8,
+	[ftypes.INT64] = 8,
+	[ftypes.UINT64] = 8,
+	[ftypes.STRING] = 1,
+}
+
 -- Register MAVLink protocol
 local mavlink = Proto("mavlink", "MAVLink Protocol")
 
@@ -284,6 +300,37 @@ local message_id = {
 -- to their corresponding message IDs.
 -- These fields are contained in the payload.
 local message_fields = {
+	HEARTBEAT = {
+		{ type = ftypes.UINT8, id = "type", enum = "MAV_TYPE" },
+		{ type = ftypes.UINT8, id = "autopilot", enum = "MAV_AUTOPILOT" },
+		{ type = ftypes.UINT8, id = "base_mode", enum = "MAV_MODE_FLAG" },
+		{ type = ftypes.UINT32, id = "custom_mode" },
+		{ type = ftypes.UINT8, id = "system_status", enum = "MAV_STATE" },
+		{ type = ftypes.UINT8, id = "mavlink_version" },
+	},
+	SYS_STATUS = {
+		{ type = ftypes.UINT32, id = "onboard_control_sensors_present",
+		  mask = "MAV_SYS_STATUS_SENSOR" },
+		{ type = ftypes.UINT32, id = "onboard_control_sensors_enabled",
+		  mask = "MAV_SYS_STATUS_SENSOR" },
+		{ type = ftypes.UINT32, id = "onboard_control_sensors_health",
+		  mask = "MAV_SYS_STATUS_SENSOR" },
+		{ type = ftypes.UINT16, id = "load" },
+		{ type = ftypes.UINT16, id = "voltage_battery",
+		  name = "Battery Voltage" },
+		{ type = ftypes.INT16, id = "current_battery",
+		  name = "Battery Current" },
+		{ type = ftypes.INT8, id = "battery_remaining",
+		  name = "Remaining Battery" },
+		{ type = ftypes.UINT16, id = "drop_rate_comm",
+		  name = "Communications Drop Rate" },
+		{ type = ftypes.UINT16, id = "errors_comm",
+		  name = "Communication Errors" },
+		{ type = ftypes.UINT16, id = "errors_count1", name = "Errors Count1" },
+		{ type = ftypes.UINT16, id = "errors_count2", name = "Errors Count2" },
+		{ type = ftypes.UINT16, id = "errors_count3", name = "Errors Count3" },
+		{ type = ftypes.UINT16, id = "errors_count4", name = "Errors Count4" },
+	},
 	PARAM_VALUE = {
 		{ type = ftypes.STRING, id = "param_id", name = "ID", length = 16 },
 		{ type = ftypes.FLOAT, id = "param_value", name = "Value" },
@@ -363,11 +410,118 @@ local message_fields = {
 		{ type = ftypes.UINT8, id = "mission_type",
 		  enum = "MAV_MISSION_TYPE" },
 	},
+	STATUSTEXT = {
+		{ type = ftypes.UINT8, id = "severity", enum = "MAV_SEVERITY" },
+		{ type = ftypes.STRING, id = "text", length = 50 },
+	},
 }
 
 -- Definitions for enumerated fields
 local message_enums = {
+	MAV_AUTOPILOT = {
+		[0] = "MAV_AUTOPILOT_GENERIC",
+		[1] = "MAV_AUTOPILOT_RESERVED",
+		[2] = "MAV_AUTOPILOT_SLUGS",
+		[3] = "MAV_AUTOPILOT_ARDUPILOTMEGA",
+		[4] = "MAV_AUTOPILOT_OPENPILOT",
+		[5] = "MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY",
+		[6] = "MAV_AUTOPILOT_GENERIC_WAYPOINTS_AND_SIMPLE_NAVIGATION_ONLY",
+		[7] = "MAV_AUTOPILOT_GENERIC_MISSION_FULL",
+		[8] = "MAV_AUTOPILOT_INVALID",
+		[9] = "MAV_AUTOPILOT_PPZ",
+		[10] = "MAV_AUTOPILOT_UDB",
+		[11] = "MAV_AUTOPILOT_FP",
+		[12] = "MAV_AUTOPILOT_PX4",
+		[13] = "MAV_AUTOPILOT_SMACCMPILOT",
+		[14] = "MAV_AUTOPILOT_AUTOQUAD",
+		[15] = "MAV_AUTOPILOT_ARMAZILA",
+		[16] = "MAV_AUTOPILOT_AEROB",
+		[17] = "MAV_AUTOPILOT_ASLUAV",
+		[18] = "MAV_AUTOPILOT_SMARTAP",
+		[19] = "MAV_AUTOPILOT_AIRRAILS",
+	},
+	MAV_TYPE = {
+		[0] = "MAV_TYPE_GENERIC",
+		[1] = "MAV_TYPE_FIXED_WING",
+		[2] = "MAV_TYPE_QUADROTOR",
+		[3] = "MAV_TYPE_COAXIAL",
+		[4] = "MAV_TYPE_HELICOPTER",
+		[5] = "MAV_TYPE_ANTENNA_TRACKER",
+		[6] = "MAV_TYPE_GCS",
+		[7] = "MAV_TYPE_AIRSHIP",
+		[8] = "MAV_TYPE_FREE_BALLOON",
+		[9] = "MAV_TYPE_ROCKET",
+		[10] = "MAV_TYPE_GROUND_ROVER",
+		[11] = "MAV_TYPE_SURFACE_BOAT",
+		[12] = "MAV_TYPE_SUBMARINE",
+		[13] = "MAV_TYPE_HEXAROTOR",
+		[14] = "MAV_TYPE_OCTOROTOR",
+		[15] = "MAV_TYPE_TRICOPTER",
+		[16] = "MAV_TYPE_FLAPPING_WING",
+		[17] = "MAV_TYPE_KITE",
+		[18] = "MAV_TYPE_ONBOARD_CONTROLLER",
+		[19] = "MAV_TYPE_VTOL_DUOROTOR",
+		[20] = "MAV_TYPE_VTOL_QUADROTOR",
+		[21] = "MAV_TYPE_VTOL_TILTROTOR",
+		[22] = "MAV_TYPE_VTOL_RESERVED2",
+		[23] = "MAV_TYPE_VTOL_RESERVED3",
+		[24] = "MAV_TYPE_VTOL_RESERVED4",
+		[25] = "MAV_TYPE_VTOL_RESERVED5",
+		[26] = "MAV_TYPE_GIMBAL",
+		[27] = "MAV_TYPE_ADSB",
+		[28] = "MAV_TYPE_PARAFOIL",
+		[29] = "MAV_TYPE_DODECAROTOR",
+		[30] = "MAV_TYPE_CAMERA",
+		[31] = "MAV_TYPE_CHARGING_STATION",
+		[32] = "MAV_TYPE_FLARM",
+	},
+	MAV_MODE_FLAG = {
+		[128] = "MAV_MODE_FLAG_SAFETY_ARMED",
+		[64] = "MAV_MODE_FLAG_MANUAL_INPUT_ENABLED",
+		[32] = "MAV_MODE_FLAG_HIL_ENABLED",
+		[16] = "MAV_MODE_FLAG_STABILIZE_ENABLED",
+		[8] = "MAV_MODE_FLAG_GUIDED_ENABLED",
+		[4] = "MAV_MODE_FLAG_AUTO_ENABLED",
+		[2] = "MAV_MODE_FLAG_TEST_ENABLED",
+		[1] = "MAV_MODE_FLAG_CUSTOM_MODE_ENABLED",
+	},
+	MAV_STATE = {
+		[0] = "MAV_STATE_UNINIT",
+		"MAV_STATE_BOOT",
+		"MAV_STATE_CALIBRATING",
+		"MAV_STATE_STANDBY",
+		"MAV_STATE_ACTIVE",
+		"MAV_STATE_CRITICAL",
+		"MAV_STATE_EMERGENCY",
+		"MAV_STATE_POWEROFF",
+		"MAV_STATE_FLIGHT_TERMINATION",
+	},
 	MAV_COMPONENT = component_id,
+	MAV_SYS_STATUS_SENSOR = {
+		[1] = "MAV_SYS_STATUS_SENSOR_3D_GYRO",
+		[2] = "MAV_SYS_STATUS_SENSOR_3D_ACCEL",
+		[4] = "MAV_SYS_STATUS_SENSOR_3D_MAG",
+		[8] = "MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE",
+		[16] = "MAV_SYS_STATUS_SENSOR_DIFFERENTIAL_PRESSURE",
+		[32] = "MAV_SYS_STATUS_SENSOR_GPS",
+		[64] = "MAV_SYS_STATUS_SENSOR_OPTICAL_FLOW",
+		[128] = "MAV_SYS_STATUS_SENSOR_VISION_POSITION",
+		[256] = "MAV_SYS_STATUS_SENSOR_LASER_POSITION",
+		[512] = "MAV_SYS_STATUS_SENSOR_EXTERNAL_GROUND_TRUTH",
+		[1024] = "MAV_SYS_STATUS_SENSOR_ANGULAR_RATE_CONTROL",
+		[2048] = "MAV_SYS_STATUS_SENSOR_ATTITUDE_STABILIZATION",
+		[4096] = "MAV_SYS_STATUS_SENSOR_YAW_POSITION",
+		[8192] = "MAV_SYS_STATUS_SENSOR_Z_ALTITUDE_CONTROL",
+		[16384] = "MAV_SYS_STATUS_SENSOR_XY_POSITION_CONTROL",
+		[32768] = "MAV_SYS_STATUS_SENSOR_MOTOR_OUTPUTS",
+		[65536] = "MAV_SYS_STATUS_SENSOR_RC_RECEIVER",
+		[131072] = "MAV_SYS_STATUS_SENSOR_3D_GYRO2",
+		[262144] = "MAV_SYS_STATUS_SENSOR_3D_ACCEL2",
+		[524288] = "MAV_SYS_STATUS_SENSOR_3D_MAG2",
+		[33554432] = "MAV_SYS_STATUS_SENSOR_BATTERY",
+		[67108864] = "MAV_SYS_STATUS_SENSOR_PROXIMITY",
+
+	},
 	MAV_FRAME = {
 		[0] = "MAV_FRAME_GLOBAL",
 		"MAV_FRAME_LOCAL_NED",
@@ -552,6 +706,16 @@ local message_enums = {
 		"MAV_MISSION_INVALID_SEQUENCE",
 		"MAV_MISSION_DENIED",
 	},
+	MAV_SEVERITY = {
+		[0] = "MAV_SEVERITY_EMERGENCY",
+		"MAV_SEVERITY_ALERT",
+		"MAV_SEVERITY_CRITICAL",
+		"MAV_SEVERITY_ERROR",
+		"MAV_SEVERITY_WARNING",
+		"MAV_SEVERITY_NOTICE",
+		"MAV_SEVERITY_INFO",
+		"MAV_SEVERITY_DEBUG",
+	},
 	MAV_MISSION_TYPE = {
 		"MAV_MISSION_TYPE_MISSION",
 		"MAV_MISSION_TYPE_FENCE",
@@ -612,28 +776,22 @@ for _, t in pairs(message_fields) do
 		local abbr = "mavlink." .. f.id
 		local name = f.name or prettyprint(f.id) or f.enum
 
-		pf = ProtoField.new(name, abbr, f.type, message_enums[f.enum])
-
+		local pf = ProtoField.new(name, abbr, f.type, message_enums[f.enum])
 		pfs_message[f.id] = pf
 		table.insert(mavlink.fields, pf)
+
+		if f.mask ~= nil then
+			local mask = message_enums[f.mask]
+			for bit, id in ipairs(mask) do
+				local xabbr = abbr .. bit
+				local len = f.length or flength[f.type]
+				pf = ProtoField.bool(
+					xabbr, message_enums[f.mask][bit], len, nil, bit
+				)
+			end
+		end
 	end
 end
-
--- Length of different field types in bytes
--- NOTE: Strings are considered 1 byte for the purpose of sorting.
-local flength = {
-	[ftypes.INT8] = 1,
-	[ftypes.UINT8] = 1,
-	[ftypes.INT16] = 2,
-	[ftypes.UINT16] = 2,
-	[ftypes.FLOAT] = 4,
-	[ftypes.INT32] = 4,
-	[ftypes.UINT32] = 4,
-	[ftypes.DOUBLE] = 8,
-	[ftypes.INT64] = 8,
-	[ftypes.UINT64] = 8,
-	[ftypes.STRING] = 1,
-}
 
 -- Sorts MAVLink message fields (insertion sort)
 -- MAVLink wire format orders payload fields by length from largest to
@@ -666,7 +824,6 @@ local function payload_parser(msgid, buffer, pinfo, tree)
 	for _, f in ipairs(sfields) do
 		local pf = pfs_message[f.id]
 		local len = f.length or flength[f.type]
-		print("len: " .. len)
 
 		if (pf ~= nil) and (offset + len <= buffer:len()) then
 			tree:add(pf, buffer(offset, len))
@@ -681,8 +838,8 @@ function mavlink.dissector(buffer, pinfo, root)
 	-- Overwrite 'Protocol' column in packet list
 	pinfo.cols.protocol = "MAVLink"
 
-	-- Add a new TreeInfo block. All decoded fields will be listed under this
-	-- block.
+	-- Add a new TreeInfo block. All decoded fields will be listed
+	-- under this block.
 	local tree = root:add(mavlink, buffer(), "MAVLink Protocol")
 
 	-- Read magic value and determine MAVLink version
