@@ -331,6 +331,20 @@ local message_fields = {
 		{ type = ftypes.UINT16, id = "errors_count3", name = "Errors Count3" },
 		{ type = ftypes.UINT16, id = "errors_count4", name = "Errors Count4" },
 	},
+	SYSTEM_TIME = {
+		{ type = ftypes.UINT64, id = "time_unix_usec",
+		  name = "UNIX time (microseconds)" },
+		{ type = ftypes.UINT32, id = "time_boot_ms",
+		  name = "System uptime (milliseconds)" },
+	},
+	PARAM_REQUEST_READ = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.STRING, id = "param_id", name = "Parameter ID",
+		  length = 16 },
+		{ type = ftypes.INT16, id = "param_index", name = "Parameter Index" },
+	},
 	PARAM_VALUE = {
 		{ type = ftypes.STRING, id = "param_id", name = "ID", length = 16 },
 		{ type = ftypes.FLOAT, id = "param_value", name = "Value" },
@@ -409,6 +423,24 @@ local message_fields = {
 		{ type = ftypes.FLOAT, id = "z" },
 		{ type = ftypes.UINT8, id = "mission_type",
 		  enum = "MAV_MISSION_TYPE" },
+	},
+	COMMAND_LONG = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT16, id = "command", enum = "MAV_CMD" },
+		{ type = ftypes.UINT8, id = "confirmation" },
+		{ type = ftypes.FLOAT, id = "param1" },
+		{ type = ftypes.FLOAT, id = "param2" },
+		{ type = ftypes.FLOAT, id = "param3" },
+		{ type = ftypes.FLOAT, id = "param4" },
+		{ type = ftypes.FLOAT, id = "param5" },
+		{ type = ftypes.FLOAT, id = "param6" },
+		{ type = ftypes.FLOAT, id = "param7" },
+	},
+	COMMAND_ACK = {
+		{ type = ftypes.UINT16, id = "command", enum = "MAV_CMD" },
+		{ type = ftypes.UINT8, id = "result", enum = "MAV_RESULT" },
 	},
 	STATUSTEXT = {
 		{ type = ftypes.UINT8, id = "severity", enum = "MAV_SEVERITY" },
@@ -498,29 +530,28 @@ local message_enums = {
 	},
 	MAV_COMPONENT = component_id,
 	MAV_SYS_STATUS_SENSOR = {
-		[1] = "MAV_SYS_STATUS_SENSOR_3D_GYRO",
-		[2] = "MAV_SYS_STATUS_SENSOR_3D_ACCEL",
-		[4] = "MAV_SYS_STATUS_SENSOR_3D_MAG",
-		[8] = "MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE",
-		[16] = "MAV_SYS_STATUS_SENSOR_DIFFERENTIAL_PRESSURE",
-		[32] = "MAV_SYS_STATUS_SENSOR_GPS",
-		[64] = "MAV_SYS_STATUS_SENSOR_OPTICAL_FLOW",
-		[128] = "MAV_SYS_STATUS_SENSOR_VISION_POSITION",
-		[256] = "MAV_SYS_STATUS_SENSOR_LASER_POSITION",
-		[512] = "MAV_SYS_STATUS_SENSOR_EXTERNAL_GROUND_TRUTH",
-		[1024] = "MAV_SYS_STATUS_SENSOR_ANGULAR_RATE_CONTROL",
-		[2048] = "MAV_SYS_STATUS_SENSOR_ATTITUDE_STABILIZATION",
-		[4096] = "MAV_SYS_STATUS_SENSOR_YAW_POSITION",
-		[8192] = "MAV_SYS_STATUS_SENSOR_Z_ALTITUDE_CONTROL",
-		[16384] = "MAV_SYS_STATUS_SENSOR_XY_POSITION_CONTROL",
-		[32768] = "MAV_SYS_STATUS_SENSOR_MOTOR_OUTPUTS",
-		[65536] = "MAV_SYS_STATUS_SENSOR_RC_RECEIVER",
-		[131072] = "MAV_SYS_STATUS_SENSOR_3D_GYRO2",
-		[262144] = "MAV_SYS_STATUS_SENSOR_3D_ACCEL2",
-		[524288] = "MAV_SYS_STATUS_SENSOR_3D_MAG2",
-		[33554432] = "MAV_SYS_STATUS_SENSOR_BATTERY",
-		[67108864] = "MAV_SYS_STATUS_SENSOR_PROXIMITY",
-
+		[0] = "MAV_SYS_STATUS_SENSOR_3D_GYRO",
+		"MAV_SYS_STATUS_SENSOR_3D_ACCEL",
+		"MAV_SYS_STATUS_SENSOR_3D_MAG",
+		"MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE",
+		"MAV_SYS_STATUS_SENSOR_DIFFERENTIAL_PRESSURE",
+		"MAV_SYS_STATUS_SENSOR_GPS",
+		"MAV_SYS_STATUS_SENSOR_OPTICAL_FLOW",
+		"MAV_SYS_STATUS_SENSOR_VISION_POSITION",
+		"MAV_SYS_STATUS_SENSOR_LASER_POSITION",
+		"MAV_SYS_STATUS_SENSOR_EXTERNAL_GROUND_TRUTH",
+		"MAV_SYS_STATUS_SENSOR_ANGULAR_RATE_CONTROL",
+		"MAV_SYS_STATUS_SENSOR_ATTITUDE_STABILIZATION",
+		"MAV_SYS_STATUS_SENSOR_YAW_POSITION",
+		"MAV_SYS_STATUS_SENSOR_Z_ALTITUDE_CONTROL",
+		"MAV_SYS_STATUS_SENSOR_XY_POSITION_CONTROL",
+		"MAV_SYS_STATUS_SENSOR_MOTOR_OUTPUTS",
+		"MAV_SYS_STATUS_SENSOR_RC_RECEIVER",
+		"MAV_SYS_STATUS_SENSOR_3D_GYRO2",
+		"MAV_SYS_STATUS_SENSOR_3D_ACCEL2",
+		"MAV_SYS_STATUS_SENSOR_3D_MAG2",
+		"MAV_SYS_STATUS_SENSOR_BATTERY",
+		"MAV_SYS_STATUS_SENSOR_PROXIMITY",
 	},
 	MAV_FRAME = {
 		[0] = "MAV_FRAME_GLOBAL",
@@ -689,6 +720,14 @@ local message_enums = {
 		"MAV_PARAM_TYPE_REAL32",
 		"MAV_PARAM_TYPE_REAL64",
 	},
+	MAV_RESULT = {
+		[0] = "MAV_RESULT_ACCEPTED",
+		"MAV_RESULT_TEMPORARILY_REJECTED",
+		"MAV_RESULT_DENIED",
+		"MAV_RESULT_UNSUPPORTED",
+		"MAV_RESULT_FAILED",
+		"MAV_RESULT_IN_PROGRESS",
+	},
 	MAV_MISSION_RESULT = {
 		[0] = "MAV_MISSION_ACCEPTED",
 		"MAV_MISSION_ERROR",
@@ -726,8 +765,8 @@ local message_enums = {
 
 
 -- Constructing ProtoField objects for MAVLink
-local pf_magic = ProtoField.uint8(
-	"mavlink.magic", "Version", base.HEX, version_from_magic)
+local pf_version = ProtoField.uint8(
+	"mavlink.version", "Version", base.HEX, version_from_magic)
 local pf_len = ProtoField.uint8("mavlink.length", "Payload Length", base.DEC)
 local pf_incompat_flags = ProtoField.uint8(
 	"mavlink.iflags", "Required Flags", base.HEX)
@@ -749,7 +788,7 @@ local pf_signature = ProtoField.bytes("mavlink.sig", "Signature")
 
 -- Globally visible list of protocol fields
 mavlink.fields = {
-	pf_magic,
+	pf_version,
 	pf_len,
 	pf_incompat_flags,
 	pf_compat_flags,
@@ -782,12 +821,18 @@ for _, t in pairs(message_fields) do
 
 		if f.mask ~= nil then
 			local mask = message_enums[f.mask]
-			for bit, id in ipairs(mask) do
-				local xabbr = abbr .. bit
-				local len = f.length or flength[f.type]
-				pf = ProtoField.bool(
-					xabbr, message_enums[f.mask][bit], len, nil, bit
+			for bit = 0, #mask do
+				local id = message_enums[f.mask][bit]
+				local xabbr = abbr .. '.' .. bit
+				local len = (f.length or flength[f.type]) * 8
+				local bitmask = bit32.lshift(1, bit)
+
+				local pf = ProtoField.bool(
+					xabbr, message_enums[f.mask][bit], len, nil, bitmask
 				)
+
+				pfs_message[f.id .. '.' .. id] = pf
+				table.insert(mavlink.fields, pf)
 			end
 		end
 	end
@@ -826,7 +871,16 @@ local function payload_parser(msgid, buffer, pinfo, tree)
 		local len = f.length or flength[f.type]
 
 		if (pf ~= nil) and (offset + len <= buffer:len()) then
-			tree:add(pf, buffer(offset, len))
+			subtree = tree:add_le(pf, buffer(offset, len))
+
+			if f.mask ~= nil then
+				local mask = message_enums[f.mask]
+				for bit = 0, #mask do
+					local id = message_enums[f.mask][bit]
+					local pf = pfs_message[f.id .. '.' .. id]
+					subtree:add_le(pf, buffer(offset, len))
+				end
+			end
 		end
 
 		offset = offset + len
@@ -840,29 +894,29 @@ function mavlink.dissector(buffer, pinfo, root)
 
 	-- Add a new TreeInfo block. All decoded fields will be listed
 	-- under this block.
-	local tree = root:add(mavlink, buffer(), "MAVLink Protocol")
+	local tree = root:add_le(mavlink, buffer(), "MAVLink Protocol")
 
 	-- Read magic value and determine MAVLink version
 	local magic = buffer(0, 1):uint()
 	local version = version_from_magic[magic]
 	local version_str = string.format("Version %0.1f", version)
-	tree:add(pf_magic, buffer(0, 1))
+	tree:add_le(pf_version, buffer(0, 1))
 
 	-- Decode remaining fields
 	local len = buffer(1, 1):uint()
-	tree:add(pf_len, buffer(1, 1))
-	tree:add(pf_seq, buffer(2, 1))
+	tree:add_le(pf_len, buffer(1, 1))
+	tree:add_le(pf_seq, buffer(2, 1))
 
 	local sysid = buffer(3, 1):uint()
 	local compid = buffer(4, 1):uint()
-	tree:add(pf_sysid, buffer(3, 1))
-	tree:add(pf_compid, buffer(4, 1))
+	tree:add_le(pf_sysid, buffer(3, 1))
+	tree:add_le(pf_compid, buffer(4, 1))
 
 	local msgid = message_id[buffer(5, 1):uint()]
-	ti_msgid = tree:add(pf_msgid, buffer(5, 1))
+	ti_msgid = tree:add_le(pf_msgid, buffer(5, 1))
 
-	ti_payload = tree:add(pf_payload, buffer(6, len))
-	tree:add(pf_checksum, buffer(6 + len, 2))
+	ti_payload = tree:add_le(pf_payload, buffer(6, len))
+	tree:add_le(pf_checksum, buffer(6 + len, 2))
 
 	-- Add summary of decoded fields to main TreeInfo node
 	local summary = " " .. version_str .. ", System: " .. sysid
