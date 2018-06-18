@@ -303,7 +303,7 @@ local message_fields = {
 	HEARTBEAT = {
 		{ type = ftypes.UINT8, id = "type", enum = "MAV_TYPE" },
 		{ type = ftypes.UINT8, id = "autopilot", enum = "MAV_AUTOPILOT" },
-		{ type = ftypes.UINT8, id = "base_mode", enum = "MAV_MODE_FLAG" },
+		{ type = ftypes.UINT8, id = "base_mode", mask = "MAV_MODE_FLAG" },
 		{ type = ftypes.UINT32, id = "custom_mode" },
 		{ type = ftypes.UINT8, id = "system_status", enum = "MAV_STATE" },
 		{ type = ftypes.UINT8, id = "mavlink_version" },
@@ -346,12 +346,16 @@ local message_fields = {
 		{ type = ftypes.INT16, id = "param_index", name = "Parameter Index" },
 	},
 	PARAM_VALUE = {
-		{ type = ftypes.STRING, id = "param_id", name = "ID", length = 16 },
-		{ type = ftypes.FLOAT, id = "param_value", name = "Value" },
+		{ type = ftypes.STRING, id = "param_id",
+		  name = "Parameter ID", length = 16 },
+		{ type = ftypes.FLOAT, id = "param_value",
+		  name = "Parameter Value" },
 		{ type = ftypes.UINT8, id = "param_type", name = "Type",
 		  enum = "MAV_PARAM_TYPE" },
-		{ type = ftypes.UINT16, id = "param_count", name = "Count" },
-		{ type = ftypes.UINT16, id = "param_index", name = "Index" },
+		{ type = ftypes.UINT16, id = "param_count",
+		  name = "Total Parameter Count" },
+		{ type = ftypes.UINT16, id = "param_index",
+		  name = "Parameter Index" },
 	},
 	MISSION_ITEM = {
 		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
@@ -405,6 +409,21 @@ local message_fields = {
 		{ type = ftypes.UINT8, id = "type",
 		  enum = "MAV_MISSION_RESULT" },
 	},
+	MISSION_REQUEST_INT = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT16, id = "seq", name = "Sequence" },
+	},
+	REQUEST_DATA_STREAM = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT8, id = "req_stream_id", name = "Stream ID" },
+		{ type = ftypes.UINT16, id = "req_message_rate",
+		  name = "Message Rate" },
+		{ type = ftypes.UINT8, id = "start_stop", name = "Start/Stop" },
+	},
 	MISSION_ITEM_INT = {
 		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
 		{ type = ftypes.UINT8, id = "target_component",
@@ -441,6 +460,19 @@ local message_fields = {
 	COMMAND_ACK = {
 		{ type = ftypes.UINT16, id = "command", enum = "MAV_CMD" },
 		{ type = ftypes.UINT8, id = "result", enum = "MAV_RESULT" },
+	},
+	TIMESYNC = {
+		{ type = ftypes.UINT64, id = "tc1", name = "Timestamp 1" },
+		{ type = ftypes.UINT64, id = "ts1", name = "Timestamp 2" },
+	},
+	FENCE_POINT = {
+		{ type = ftypes.UINT8, id = "target_system", name = "System ID" },
+		{ type = ftypes.UINT8, id = "target_component",
+		  name = "Component ID", enum = "MAV_COMPONENT" },
+		{ type = ftypes.UINT8, id = "idx", name = "Point Index" },
+		{ type = ftypes.UINT8, id = "count" },
+		{ type = ftypes.FLOAT, id = "lat", name = "Latitude" },
+		{ type = ftypes.FLOAT, id = "lng", name = "Longitude" },
 	},
 	STATUSTEXT = {
 		{ type = ftypes.UINT8, id = "severity", enum = "MAV_SEVERITY" },
@@ -508,14 +540,14 @@ local message_enums = {
 		[32] = "MAV_TYPE_FLARM",
 	},
 	MAV_MODE_FLAG = {
-		[128] = "MAV_MODE_FLAG_SAFETY_ARMED",
-		[64] = "MAV_MODE_FLAG_MANUAL_INPUT_ENABLED",
-		[32] = "MAV_MODE_FLAG_HIL_ENABLED",
-		[16] = "MAV_MODE_FLAG_STABILIZE_ENABLED",
-		[8] = "MAV_MODE_FLAG_GUIDED_ENABLED",
-		[4] = "MAV_MODE_FLAG_AUTO_ENABLED",
-		[2] = "MAV_MODE_FLAG_TEST_ENABLED",
-		[1] = "MAV_MODE_FLAG_CUSTOM_MODE_ENABLED",
+		[7] = "MAV_MODE_FLAG_SAFETY_ARMED",
+		[6] = "MAV_MODE_FLAG_MANUAL_INPUT_ENABLED",
+		[5] = "MAV_MODE_FLAG_HIL_ENABLED",
+		[4] = "MAV_MODE_FLAG_STABILIZE_ENABLED",
+		[3] = "MAV_MODE_FLAG_GUIDED_ENABLED",
+		[2] = "MAV_MODE_FLAG_AUTO_ENABLED",
+		[1] = "MAV_MODE_FLAG_TEST_ENABLED",
+		[0] = "MAV_MODE_FLAG_CUSTOM_MODE_ENABLED",
 	},
 	MAV_STATE = {
 		[0] = "MAV_STATE_UNINIT",
@@ -810,13 +842,13 @@ end
 
 -- Adding ProtoFields for message fields (found in payload)
 local pfs_message = {}
-for _, t in pairs(message_fields) do
+for msgid, t in pairs(message_fields) do
 	for _, f in pairs(t) do
-		local abbr = "mavlink." .. f.id
+		local abbr = "mavlink." .. msgid .. '.' .. f.id
 		local name = f.name or prettyprint(f.id) or f.enum
 
 		local pf = ProtoField.new(name, abbr, f.type, message_enums[f.enum])
-		pfs_message[f.id] = pf
+		pfs_message[msgid .. '.' .. f.id] = pf
 		table.insert(mavlink.fields, pf)
 
 		if f.mask ~= nil then
@@ -831,7 +863,7 @@ for _, t in pairs(message_fields) do
 					xabbr, message_enums[f.mask][bit], len, nil, bitmask
 				)
 
-				pfs_message[f.id .. '.' .. id] = pf
+				pfs_message[msgid .. '.' .. f.id .. '.' .. id] = pf
 				table.insert(mavlink.fields, pf)
 			end
 		end
@@ -867,7 +899,7 @@ local function payload_parser(msgid, buffer, pinfo, tree)
 	local offset = 0
 
 	for _, f in ipairs(sfields) do
-		local pf = pfs_message[f.id]
+		local pf = pfs_message[msgid .. '.' .. f.id]
 		local len = f.length or flength[f.type]
 
 		if (pf ~= nil) and (offset + len <= buffer:len()) then
@@ -877,7 +909,7 @@ local function payload_parser(msgid, buffer, pinfo, tree)
 				local mask = message_enums[f.mask]
 				for bit = 0, #mask do
 					local id = message_enums[f.mask][bit]
-					local pf = pfs_message[f.id .. '.' .. id]
+					local pf = pfs_message[msgid .. '.' .. f.id .. '.' .. id]
 					subtree:add_le(pf, buffer(offset, len))
 				end
 			end
